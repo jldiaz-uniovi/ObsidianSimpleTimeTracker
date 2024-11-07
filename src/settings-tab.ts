@@ -42,6 +42,37 @@ export class SimpleTimeTrackerSettingsTab extends PluginSettingTab {
             });
 
         new Setting(this.containerEl)
+            .setName("Item Template")
+            .setDesc("The template that should be used for each item in the markdown exported list. Use {{start}}, {{end}}, {{duration}} and {{description}} as placeholders.")
+            .setHeading();
+
+        new Setting(this.containerEl)
+            .addTextArea(t => {
+                t.setValue(String(this.plugin.settings.itemTemplate));
+                t.inputEl.cols = 80;
+                t.onChange(async v => {
+                    this.plugin.settings.itemTemplate = v;
+                    await this.plugin.saveSettings();
+                });
+            });
+
+        new Setting(this.containerEl)
+            .setName("Table headers")
+            .setDesc("The text in the headers of the markdown exported table (set to empty to recover default values).")
+            .setHeading();
+
+        for (let i = 0; i < 4; i++) {
+            new Setting(this.containerEl)
+                .addText(t => {
+                    t.setValue(String(this.plugin.settings.tableHeaders[i]));
+                    t.onChange(async v => {
+                        this.plugin.settings.tableHeaders[i] = v.length ? v : defaultSettings.tableHeaders[i];
+                        await this.plugin.saveSettings();
+                    });
+                });
+        }
+
+        new Setting(this.containerEl)
             .setName("Fine-Grained Durations")
             .setDesc("Whether durations should include days, months and years. If this is disabled, additional time units will be displayed as part of the hours.")
             .addToggle(t => {
@@ -74,16 +105,16 @@ export class SimpleTimeTrackerSettingsTab extends PluginSettingTab {
                 });
             });
 
-        this.containerEl.createEl("hr");
-        this.containerEl.createEl("p", { text: "Need help using the plugin? Feel free to join the Discord server!" });
-        this.containerEl.createEl("a", { href: "https://link.ellpeck.de/discordweb" }).createEl("img", {
-            attr: { src: "https://ellpeck.de/res/discord-wide.png" },
-            cls: "simple-time-tracker-settings-image"
-        });
-        this.containerEl.createEl("p", { text: "If you like this plugin and want to support its development, you can do so through my website by clicking this fancy image!" });
-        this.containerEl.createEl("a", { href: "https://ellpeck.de/support" }).createEl("img", {
-            attr: { src: "https://ellpeck.de/res/generalsupport-wide.png" },
-            cls: "simple-time-tracker-settings-image"
-        });
+        // this.containerEl.createEl("hr");
+        // this.containerEl.createEl("p", { text: "Need help using the plugin? Feel free to join the Discord server!" });
+        // this.containerEl.createEl("a", { href: "https://link.ellpeck.de/discordweb" }).createEl("img", {
+        //     attr: { src: "https://ellpeck.de/res/discord-wide.png" },
+        //     cls: "simple-time-tracker-settings-image"
+        // });
+        // this.containerEl.createEl("p", { text: "If you like this plugin and want to support its development, you can do so through my website by clicking this fancy image!" });
+        // this.containerEl.createEl("a", { href: "https://ellpeck.de/support" }).createEl("img", {
+        //     attr: { src: "https://ellpeck.de/res/generalsupport-wide.png" },
+        //     cls: "simple-time-tracker-settings-image"
+        // });
     }
 }

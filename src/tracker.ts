@@ -1,6 +1,7 @@
 import { moment, MarkdownSectionInformation, ButtonComponent, TextComponent, TFile, MarkdownRenderer, Component, MarkdownRenderChild } from "obsidian";
 import { SimpleTimeTrackerSettings } from "./settings";
 import { ConfirmModal } from "./confirm-modal";
+import { SimpleTimeTrackerPlugin } from "./main";
 
 export interface Tracker {
     entries: Entry[];
@@ -117,6 +118,9 @@ export function displayTracker(tracker: Tracker, element: HTMLElement, getFile: 
         // add copy buttons
         let buttons = element.createEl("div", { cls: "simple-time-tracker-bottom" });
         new ButtonComponent(buttons)
+            .setButtonText("Copy as item list")
+            .onClick(() => navigator.clipboard.writeText(createMarkdownList(tracker, settings)));
+        new ButtonComponent(buttons)
             .setButtonText("Copy as table")
             .onClick(() => navigator.clipboard.writeText(createMarkdownTable(tracker, settings)));
         new ButtonComponent(buttons)
@@ -172,8 +176,86 @@ export function getRunningEntry(entries: Entry[]): Entry {
     return null;
 }
 
+export class TemplateProcessor {
+    constructor(public variables: Record<string, any>) {
+    }
+
+    setVariable(name: string, value: any) {
+        this.variables[name] = value;
+    }
+
+    evalPart(expr: string) {
+        // avoid direct eval
+        const evaluated = new Function(...Object.keys(this.variables), `return ${expr};`)(...Object.values(this.variables));
+        if (evaluated === undefined) {
+            throw Error(`The expression "${expr}" cannot be evaluated.`);
+        }
+        return evaluated;
+    }
+
+    evalTemplate(template: string) {
+        return template.replace(/{{(.*?)}}/g, (match, expr) => this.evalPart(expr));
+    }
+}
+
+
+
+class MyEntry {
+    name: string;
+    start: string;
+    end: string;
+    duration: number;
+    subentries: MyEntry[];
+
+    constructor(name:string, start:string, end:string, duration:number, subentries:MyEntry[] = []) {
+      this.name = name;
+      this.start = start;
+      this.end = end;
+      this.duration = duration;
+      this.subentries = subentries;
+    }
+  }
+
+function processJson(entries: Entry[]): MyEntry[] {
+    const entriesList = [];
+    for (const entry of entries) {
+        const subentries = entry.subEntries ? processJson(entry.subEntries) : [];
+
+        const start = entry.startTime ? entry.startTime : (subentries[0] ? subentries[0].start : null);
+        const end = entry.endTime ? entry.endTime : (subentries[subentries.length - 1] ? subentries[subentries.length - 1].end : null);
+        const duration = moment(end).diff(moment(start));
+        entriesList.push(new MyEntry(entry.name, start, end, duration, subentries));
+    }
+    return entriesList;
+}
+
+function convertEntriesToMarkdown(entriesList: MyEntry[], settings: SimpleTimeTrackerSettings, level = 0): string[] {
+    const markdownLines = [];
+    for (const entry of entriesList) {
+        let t = new TemplateProcessor(variables = {
+            start: formatTimestamp(entry.start, settings),
+            end: formatTimestamp(entry.end, settings),
+            duration: formatDuration(entry.duration, settings),
+            description: entry.name
+        });
+        markdownLines.push(`${"    ".repeat(level)}- ${t.evalTemplate(settings.itemTemplate)}`);
+        if (entry.subentries.length > 0) {
+            markdownLines.push(...convertEntriesToMarkdown(entry.subentries, settings, level + 1));
+        }
+    }
+    return markdownLines;
+}
+
+
+export function createMarkdownList(tracker: Tracker, settings: SimpleTimeTrackerSettings): string {
+    const entriesList = processJson(tracker.entries);
+    const markdownLines = convertEntriesToMarkdown(entriesList, settings);
+    markdownLines.unshift(`**Total** ${formatDuration(getTotalDuration(tracker.entries), settings)}`);
+    return markdownLines.join("\n");
+}
+
 export function createMarkdownTable(tracker: Tracker, settings: SimpleTimeTrackerSettings): string {
-    let table = [["Segment", "Start time", "End time", "Duration"]];
+    let table = [settings.tableHeaders];
     for (let entry of orderedEntries(tracker.entries, settings))
         table.push(...createTableSection(entry, settings));
     table.push(["**Total**", "", "", `**${formatDuration(getTotalDuration(tracker.entries), settings)}**`]);
