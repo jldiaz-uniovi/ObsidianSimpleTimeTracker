@@ -1,7 +1,6 @@
 import { moment, MarkdownSectionInformation, ButtonComponent, TextComponent, TFile, MarkdownRenderer, Component, MarkdownRenderChild } from "obsidian";
 import { SimpleTimeTrackerSettings } from "./settings";
 import { ConfirmModal } from "./confirm-modal";
-import { SimpleTimeTrackerPlugin } from "./main";
 
 export interface Tracker {
     entries: Entry[];
@@ -223,7 +222,7 @@ function processJson(entries: Entry[]): MyEntry[] {
 
         const start = entry.startTime ? entry.startTime : (subentries[0] ? subentries[0].start : null);
         const end = entry.endTime ? entry.endTime : (subentries[subentries.length - 1] ? subentries[subentries.length - 1].end : null);
-        const duration = moment(end).diff(moment(start));
+        const duration = getDuration(entry);
         entriesList.push(new MyEntry(entry.name, start, end, duration, subentries));
     }
     return entriesList;
@@ -232,7 +231,7 @@ function processJson(entries: Entry[]): MyEntry[] {
 function convertEntriesToMarkdown(entriesList: MyEntry[], settings: SimpleTimeTrackerSettings, level = 0): string[] {
     const markdownLines = [];
     for (const entry of entriesList) {
-        let t = new TemplateProcessor(variables = {
+        let t = new TemplateProcessor({
             start: formatTimestamp(entry.start, settings),
             end: formatTimestamp(entry.end, settings),
             duration: formatDuration(entry.duration, settings),
